@@ -16,29 +16,31 @@ import (
 	"github.com/render-oss/render-mcp-server/pkg/validate"
 )
 
-func Tools(c *client.ClientWithResponses) []server.ServerTool {
+func AddTools(s *server.MCPServer, c *client.ClientWithResponses) {
 	postgresRepo := NewRepo(c)
 
-	return []server.ServerTool{
-		listPostgresInstances(postgresRepo),
-		getPostgres(postgresRepo),
-		createPostgres(postgresRepo),
-		queryPostgres(postgresRepo),
-	}
+	tool, handler := listPostgresInstances(postgresRepo)
+	s.AddTool(*tool, handler)
+	tool, handler = getPostgres(postgresRepo)
+	s.AddTool(*tool, handler)
+	tool, handler = createPostgres(postgresRepo)
+	s.AddTool(*tool, handler)
+	tool, handler = queryPostgres(postgresRepo)
+	s.AddTool(*tool, handler)
 }
 
-func listPostgresInstances(postgresRepo *Repo) server.ServerTool {
-	return server.ServerTool{
-		Tool: mcp.NewTool("list_postgres_instances",
-			mcp.WithDescription("List all Postgres databases in your Render account"),
-			mcp.WithToolAnnotation(mcp.ToolAnnotation{
-				Title:          "List Postgres instances",
-				ReadOnlyHint:   pointers.From(true),
-				IdempotentHint: pointers.From(true),
-				OpenWorldHint:  pointers.From(true),
-			}),
-		),
-		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func listPostgresInstances(postgresRepo *Repo) (*mcp.Tool, server.ToolHandlerFunc) {
+	tool := mcp.NewTool("list_postgres_instances",
+		mcp.WithDescription("List all Postgres databases in your Render account"),
+		mcp.WithToolAnnotation(mcp.ToolAnnotation{
+			Title:          "List Postgres instances",
+			ReadOnlyHint:   pointers.From(true),
+			IdempotentHint: pointers.From(true),
+			OpenWorldHint:  pointers.From(true),
+		}),
+	)
+	return &tool,
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			postgres, err := postgresRepo.ListPostgres(ctx, &client.ListPostgresParams{})
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
@@ -54,26 +56,25 @@ func listPostgresInstances(postgresRepo *Repo) server.ServerTool {
 			}
 
 			return mcp.NewToolResultText(string(respJSON)), nil
-		},
-	}
+		}
 }
 
-func getPostgres(postgresRepo *Repo) server.ServerTool {
-	return server.ServerTool{
-		Tool: mcp.NewTool("get_postgres",
-			mcp.WithDescription("Retrieve a Postgres instance by ID"),
-			mcp.WithToolAnnotation(mcp.ToolAnnotation{
-				Title:          "Get Postgres instance details",
-				ReadOnlyHint:   pointers.From(true),
-				IdempotentHint: pointers.From(true),
-				OpenWorldHint:  pointers.From(true),
-			}),
-			mcp.WithString("postgresId",
-				mcp.Required(),
-				mcp.Description("The ID of the Postgres instance to retrieve"),
-			),
+func getPostgres(postgresRepo *Repo) (*mcp.Tool, server.ToolHandlerFunc) {
+	tool := mcp.NewTool("get_postgres",
+		mcp.WithDescription("Retrieve a Postgres instance by ID"),
+		mcp.WithToolAnnotation(mcp.ToolAnnotation{
+			Title:          "Get Postgres instance details",
+			ReadOnlyHint:   pointers.From(true),
+			IdempotentHint: pointers.From(true),
+			OpenWorldHint:  pointers.From(true),
+		}),
+		mcp.WithString("postgresId",
+			mcp.Required(),
+			mcp.Description("The ID of the Postgres instance to retrieve"),
 		),
-		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	)
+	return &tool,
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			postgresId, err := validate.RequiredToolParam[string](request, "postgresId")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
@@ -90,44 +91,43 @@ func getPostgres(postgresRepo *Repo) server.ServerTool {
 			}
 
 			return mcp.NewToolResultText(string(respJSON)), nil
-		},
-	}
+		}
 }
 
-func createPostgres(postgresRepo *Repo) server.ServerTool {
-	return server.ServerTool{
-		Tool: mcp.NewTool("create_postgres",
-			mcp.WithDescription("Create a new Postgres instance in your Render account"),
-			mcp.WithToolAnnotation(mcp.ToolAnnotation{
-				Title:          "Create Postgres instance",
-				ReadOnlyHint:   pointers.From(false),
-				IdempotentHint: pointers.From(false),
-				OpenWorldHint:  pointers.From(true),
-			}),
-			mcp.WithString("name",
-				mcp.Required(),
-				mcp.Description("The name of the database as it will appear in the Render Dashboard"),
-			),
-			mcp.WithString("plan",
-				mcp.Required(),
-				mcp.Description("Pricing plan for the database"),
-				mcp.Enum(mcpserver.PostgresPlanEnumValues()...),
-			),
-			mcp.WithString("region",
-				mcp.Description("Region where the database will be deployed"),
-				mcp.Enum(mcpserver.RegionEnumValues()...),
-			),
-			mcp.WithNumber("version",
-				mcp.Description("PostgreSQL version to use (e.g., 14, 15)"),
-				mcp.Min(12),
-				mcp.Max(16),
-				mcp.DefaultNumber(16),
-			),
-			mcp.WithNumber("diskSizeGb",
-				mcp.Description("Your database's capacity, in GB. You can increase storage at any time, but you can't decrease it. Specify 1 GB or any multiple of 5 GB."),
-			),
+func createPostgres(postgresRepo *Repo) (*mcp.Tool, server.ToolHandlerFunc) {
+	tool := mcp.NewTool("create_postgres",
+		mcp.WithDescription("Create a new Postgres instance in your Render account"),
+		mcp.WithToolAnnotation(mcp.ToolAnnotation{
+			Title:          "Create Postgres instance",
+			ReadOnlyHint:   pointers.From(false),
+			IdempotentHint: pointers.From(false),
+			OpenWorldHint:  pointers.From(true),
+		}),
+		mcp.WithString("name",
+			mcp.Required(),
+			mcp.Description("The name of the database as it will appear in the Render Dashboard"),
 		),
-		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		mcp.WithString("plan",
+			mcp.Required(),
+			mcp.Description("Pricing plan for the database"),
+			mcp.Enum(mcpserver.PostgresPlanEnumValues()...),
+		),
+		mcp.WithString("region",
+			mcp.Description("Region where the database will be deployed"),
+			mcp.Enum(mcpserver.RegionEnumValues()...),
+		),
+		mcp.WithNumber("version",
+			mcp.Description("PostgreSQL version to use (e.g., 14, 15)"),
+			mcp.Min(12),
+			mcp.Max(16),
+			mcp.DefaultNumber(16),
+		),
+		mcp.WithNumber("diskSizeGb",
+			mcp.Description("Your database's capacity, in GB. You can increase storage at any time, but you can't decrease it. Specify 1 GB or any multiple of 5 GB."),
+		),
+	)
+	return &tool,
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			name, err := validate.RequiredToolParam[string](request, "name")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
@@ -190,31 +190,30 @@ func createPostgres(postgresRepo *Repo) server.ServerTool {
 			}
 
 			return mcp.NewToolResultText(string(respJSON)), nil
-		},
-	}
+		}
 }
 
-func queryPostgres(postgresRepo *Repo) server.ServerTool {
-	return server.ServerTool{
-		Tool: mcp.NewTool("query_render_postgres",
-			mcp.WithDescription("Run a read-only SQL query against a Render-hosted Postgres database. "+
-				"This tool creates a new connection for each query and closes it after the query completes."),
-			mcp.WithToolAnnotation(mcp.ToolAnnotation{
-				Title:          "Query Postgres",
-				ReadOnlyHint:   pointers.From(true),
-				IdempotentHint: pointers.From(true),
-				OpenWorldHint:  pointers.From(true),
-			}),
-			mcp.WithString("postgresId",
-				mcp.Required(),
-				mcp.Description("The ID of the Postgres instance to query"),
-			),
-			mcp.WithString("sql",
-				mcp.Required(),
-				mcp.Description("The SQL query to run. Note that the query will be wrapped in a read-only transaction."),
-			),
+func queryPostgres(postgresRepo *Repo) (*mcp.Tool, server.ToolHandlerFunc) {
+	tool := mcp.NewTool("query_render_postgres",
+		mcp.WithDescription("Run a read-only SQL query against a Render-hosted Postgres database. "+
+			"This tool creates a new connection for each query and closes it after the query completes."),
+		mcp.WithToolAnnotation(mcp.ToolAnnotation{
+			Title:          "Query Postgres",
+			ReadOnlyHint:   pointers.From(true),
+			IdempotentHint: pointers.From(true),
+			OpenWorldHint:  pointers.From(true),
+		}),
+		mcp.WithString("postgresId",
+			mcp.Required(),
+			mcp.Description("The ID of the Postgres instance to query"),
 		),
-		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		mcp.WithString("sql",
+			mcp.Required(),
+			mcp.Description("The SQL query to run. Note that the query will be wrapped in a read-only transaction."),
+		),
+	)
+	return &tool,
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			postgresId, err := validate.RequiredToolParam[string](request, "postgresId")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
@@ -299,6 +298,5 @@ func queryPostgres(postgresRepo *Repo) server.ServerTool {
 			}
 
 			return mcp.NewToolResultText(string(respJSON)), nil
-		},
-	}
+		}
 }

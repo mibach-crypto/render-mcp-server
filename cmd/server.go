@@ -7,7 +7,9 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/render-oss/render-mcp-server/pkg/authn"
 	"github.com/render-oss/render-mcp-server/pkg/cfg"
+	"github.com/render-oss/render-mcp-server/pkg/auth"
 	"github.com/render-oss/render-mcp-server/pkg/client"
+	"github.com/render-oss/render-mcp-server/pkg/config"
 	"github.com/render-oss/render-mcp-server/pkg/deploy"
 	"github.com/render-oss/render-mcp-server/pkg/keyvalue"
 	"github.com/render-oss/render-mcp-server/pkg/logs"
@@ -28,17 +30,21 @@ func Serve(transport string) *server.MCPServer {
 
 	c, err := client.NewDefaultClient()
 	if err != nil {
-		// TODO: We can't create a client unless we're logged in, so we should handle that error case.
-		panic(err)
+		if err == config.ErrLogin {
+			auth.AddTools(s)
+		} else {
+			// TODO: We can't create a client unless we're logged in, so we should handle that error case.
+			panic(err)
+		}
+	} else {
+		owner.AddTools(s, c)
+		service.AddTools(s, c)
+		deploy.AddTools(s, c)
+		postgres.AddTools(s, c)
+		keyvalue.AddTools(s, c)
+		logs.AddTools(s, c)
+		metrics.AddTools(s, c)
 	}
-
-	s.AddTools(owner.Tools(c)...)
-	s.AddTools(service.Tools(c)...)
-	s.AddTools(deploy.Tools(c)...)
-	s.AddTools(postgres.Tools(c)...)
-	s.AddTools(keyvalue.Tools(c)...)
-	s.AddTools(logs.Tools(c)...)
-	s.AddTools(metrics.Tools(c)...)
 
 	if transport == "http" {
 		var sessionStore session.Store

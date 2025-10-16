@@ -15,105 +15,105 @@ import (
 	"github.com/render-oss/render-mcp-server/pkg/validate"
 )
 
-func Tools(c *client.ClientWithResponses) []server.ServerTool {
+func AddTools(s *server.MCPServer, c *client.ClientWithResponses) {
 	logRepo := NewLogRepo(c)
 
-	return []server.ServerTool{
-		listLogs(logRepo),
-		listLogLabelValues(logRepo),
-	}
+	tool, handler := listLogs(logRepo)
+	s.AddTool(*tool, handler)
+	tool, handler = listLogLabelValues(logRepo)
+	s.AddTool(*tool, handler)
 }
 
-func listLogs(logRepo *LogRepo) server.ServerTool {
-	return server.ServerTool{
-		Tool: mcp.NewTool("list_logs",
-			mcp.WithDescription("List logs matching the provided filters. Logs are paginated by start and end timestamps. "+
-				"There are more logs to fetch if hasMore is true in the response. "+
-				"Provide the nextStartTime and nextEndTime timestamps as the startTime and endTime query parameters to fetch the next page of logs. "+
-				"You can query for logs across multiple resources, but all resources must be in the same region and belong to the same owner."),
-			mcp.WithToolAnnotation(mcp.ToolAnnotation{
-				Title:          "List logs",
-				ReadOnlyHint:   pointers.From(true),
-				IdempotentHint: pointers.From(true),
-				OpenWorldHint:  pointers.From(true),
+func listLogs(logRepo *LogRepo) (*mcp.Tool, server.ToolHandlerFunc) {
+	tool := mcp.NewTool("list_logs",
+		mcp.WithDescription("List logs matching the provided filters. Logs are paginated by start and end timestamps. "+
+			"There are more logs to fetch if hasMore is true in the response. "+
+			"Provide the nextStartTime and nextEndTime timestamps as the startTime and endTime query parameters to fetch the next page of logs. "+
+			"You can query for logs across multiple resources, but all resources must be in the same region and belong to the same owner."),
+		mcp.WithToolAnnotation(mcp.ToolAnnotation{
+			Title:          "List logs",
+			ReadOnlyHint:   pointers.From(true),
+			IdempotentHint: pointers.From(true),
+			OpenWorldHint:  pointers.From(true),
+		}),
+		mcp.WithArray("resource",
+			mcp.Required(),
+			mcp.Description("Filter logs by their resource. A resource is the id of a server, cronjob, job, postgres, or redis."),
+			mcp.Items(map[string]interface{}{
+				"type": "string",
 			}),
-			mcp.WithArray("resource",
-				mcp.Required(),
-				mcp.Description("Filter logs by their resource. A resource is the id of a server, cronjob, job, postgres, or redis."),
-				mcp.Items(map[string]interface{}{
-					"type": "string",
-				}),
-			),
-			mcp.WithArray("level",
-				mcp.Description("Filter logs by their severity level. Wildcards and regex are supported."),
-				mcp.Items(map[string]interface{}{
-					"type": "string",
-				}),
-			),
-			mcp.WithArray("type",
-				mcp.Description("Filter logs by their type. Types include app for application logs, request for request logs, and build for build logs. You can find the full set of types available for a query by using the list_log_label_values tool."),
-				mcp.Items(map[string]interface{}{
-					"type": "string",
-				}),
-			),
-			mcp.WithArray("instance",
-				mcp.Description("Filter logs by the instance they were emitted from. An instance is the id of a specific running server."),
-				mcp.Items(map[string]interface{}{
-					"type": "string",
-				}),
-			),
-			mcp.WithArray("host",
-				mcp.Description("Filter request logs by their host. Wildcards and regex are supported."),
-				mcp.Items(map[string]interface{}{
-					"type": "string",
-				}),
-			),
-			mcp.WithArray("statusCode",
-				mcp.Description("Filter request logs by their status code. Wildcards and regex are supported."),
-				mcp.Items(map[string]interface{}{
-					"type": "string",
-				}),
-			),
-			mcp.WithArray("method",
-				mcp.Description("Filter request logs by their requests method. Wildcards and regex are supported."),
-				mcp.Items(map[string]interface{}{
-					"type": "string",
-				}),
-			),
-			mcp.WithArray("path",
-				mcp.Description("Filter request logs by their path. Wildcards and regex are supported."),
-				mcp.Items(map[string]interface{}{
-					"type": "string",
-				}),
-			),
-			mcp.WithArray("text",
-				mcp.Description("Filter by the text of the logs. Wildcards and regex are supported."),
-				mcp.Items(map[string]interface{}{
-					"type": "string",
-				}),
-			),
-			mcp.WithString("startTime",
-				mcp.Description("Start time for log query (RFC3339 format). "+
-					"Defaults to 1 hour ago. "+
-					"The start time must be within the last 30 days."),
-			),
-			mcp.WithString("endTime",
-				mcp.Description("End time for log query (RFC3339 format). "+
-					"Defaults to the current time. "+
-					"The end time must be within the last 30 days."),
-			),
-			mcp.WithString("direction",
-				mcp.Description("The direction to query logs for. Backward will return most recent logs first. Forward will start with the oldest logs in the time range."),
-				mcp.Enum(string(logsclient.Backward), string(logsclient.Forward)),
-				mcp.DefaultString(string(logsclient.Backward)),
-			),
-			mcp.WithNumber("limit",
-				mcp.Description("Maximum number of logs to return"),
-				mcp.Min(1),
-				mcp.Max(100),
-			),
 		),
-		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		mcp.WithArray("level",
+			mcp.Description("Filter logs by their severity level. Wildcards and regex are supported."),
+			mcp.Items(map[string]interface{}{
+				"type": "string",
+			}),
+		),
+		mcp.WithArray("type",
+			mcp.Description("Filter logs by their type. Types include app for application logs, request for request logs, and build for build logs. You can find the full set of types available for a query by using the list_log_label_values tool."),
+			mcp.Items(map[string]interface{}{
+				"type": "string",
+			}),
+		),
+		mcp.WithArray("instance",
+			mcp.Description("Filter logs by the instance they were emitted from. An instance is the id of a specific running server."),
+			mcp.Items(map[string]interface{}{
+				"type": "string",
+			}),
+		),
+		mcp.WithArray("host",
+			mcp.Description("Filter request logs by their host. Wildcards and regex are supported."),
+			mcp.Items(map[string]interface{}{
+				"type": "string",
+			}),
+		),
+		mcp.WithArray("statusCode",
+			mcp.Description("Filter request logs by their status code. Wildcards and regex are supported."),
+			mcp.Items(map[string]interface{}{
+				"type": "string",
+			}),
+		),
+		mcp.WithArray("method",
+			mcp.Description("Filter request logs by their requests method. Wildcards and regex are supported."),
+			mcp.Items(map[string]interface{}{
+				"type": "string",
+			}),
+		),
+		mcp.WithArray("path",
+			mcp.Description("Filter request logs by their path. Wildcards and regex are supported."),
+			mcp.Items(map[string]interface{}{
+				"type": "string",
+			}),
+		),
+		mcp.WithArray("text",
+			mcp.Description("Filter by the text of the logs. Wildcards and regex are supported."),
+			mcp.Items(map[string]interface{}{
+				"type": "string",
+			}),
+		),
+		mcp.WithString("startTime",
+			mcp.Description("Start time for log query (RFC3339 format). "+
+				"Defaults to 1 hour ago. "+
+				"The start time must be within the last 30 days."),
+		),
+		mcp.WithString("endTime",
+			mcp.Description("End time for log query (RFC3339 format). "+
+				"Defaults to the current time. "+
+				"The end time must be within the last 30 days."),
+		),
+		mcp.WithString("direction",
+			mcp.Description("The direction to query logs for. Backward will return most recent logs first. Forward will start with the oldest logs in the time range."),
+			mcp.Enum(string(logsclient.Backward), string(logsclient.Forward)),
+			mcp.DefaultString(string(logsclient.Backward)),
+		),
+		mcp.WithNumber("limit",
+			mcp.Description("Maximum number of logs to return"),
+			mcp.Min(1),
+			mcp.Max(100),
+		),
+	)
+	return &tool,
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			ownerId, err := session.FromContext(ctx).GetWorkspace(ctx)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
@@ -225,100 +225,99 @@ func listLogs(logRepo *LogRepo) server.ServerTool {
 			}
 
 			return mcp.NewToolResultText(string(respJSON)), nil
-		},
-	}
+		}
 }
 
-func listLogLabelValues(logRepo *LogRepo) server.ServerTool {
-	return server.ServerTool{
-		Tool: mcp.NewTool("list_log_label_values",
-			mcp.WithDescription("List all values for a given log label in the logs matching the provided filters. "+
-				"This can be used to discover what values are available for filtering logs using the list_logs tool. "+
-				"You can query for logs across multiple resources, but all resources must be in the same region and belong to the same owner.",
-			),
-			mcp.WithToolAnnotation(mcp.ToolAnnotation{
-				Title:          "List log label values",
-				ReadOnlyHint:   pointers.From(true),
-				IdempotentHint: pointers.From(true),
-				OpenWorldHint:  pointers.From(true),
-			}),
-			mcp.WithString("label",
-				mcp.Required(),
-				mcp.Description("The label to list values for."),
-				mcp.Enum(mcpserver.EnumValuesFromClientType(client.Host, client.Instance, client.Level, client.Method, client.StatusCode, client.Type)...),
-			),
-			mcp.WithArray("resource",
-				mcp.Required(),
-				mcp.Description("Filter by resource. A resource is the id of a server, cronjob, job, postgres, or redis."),
-				mcp.Items(map[string]interface{}{
-					"type": "string",
-				}),
-			),
-			mcp.WithArray("level",
-				mcp.Description("Filter logs by their severity level. Wildcards and regex are supported."),
-				mcp.Items(map[string]interface{}{
-					"type": "string",
-				}),
-			),
-			mcp.WithArray("type",
-				mcp.Description("Filter logs by their type."),
-				mcp.Items(map[string]interface{}{
-					"type": "string",
-				}),
-			),
-			mcp.WithArray("instance",
-				mcp.Description("Filter logs by the instance they were emitted from."),
-				mcp.Items(map[string]interface{}{
-					"type": "string",
-				}),
-			),
-			mcp.WithArray("host",
-				mcp.Description("Filter request logs by their host. Wildcards and regex are supported."),
-				mcp.Items(map[string]interface{}{
-					"type": "string",
-				}),
-			),
-			mcp.WithArray("statusCode",
-				mcp.Description("Filter request logs by their status code. Wildcards and regex are supported."),
-				mcp.Items(map[string]interface{}{
-					"type": "string",
-				}),
-			),
-			mcp.WithArray("method",
-				mcp.Description("Filter request logs by their requests method. Wildcards and regex are supported."),
-				mcp.Items(map[string]interface{}{
-					"type": "string",
-				}),
-			),
-			mcp.WithArray("path",
-				mcp.Description("Filter request logs by their path. Wildcards and regex are supported."),
-				mcp.Items(map[string]interface{}{
-					"type": "string",
-				}),
-			),
-			mcp.WithArray("text",
-				mcp.Description("Filter by the text of the logs. Wildcards and regex are supported."),
-				mcp.Items(map[string]interface{}{
-					"type": "string",
-				}),
-			),
-			mcp.WithString("startTime",
-				mcp.Description("Start time for log query (RFC3339 format). "+
-					"Defaults to 1 hour ago. "+
-					"The start time must be within the last 30 days."),
-			),
-			mcp.WithString("endTime",
-				mcp.Description("End time for log query (RFC3339 format). "+
-					"Defaults to the current time. "+
-					"The end time must be within the last 30 days."),
-			),
-			mcp.WithString("direction",
-				mcp.Description("The direction to query logs for. Backward will return most recent logs first. Forward will start with the oldest logs in the time range."),
-				mcp.Enum(string(logsclient.Backward), string(logsclient.Forward)),
-				mcp.DefaultString(string(logsclient.Backward)),
-			),
+func listLogLabelValues(logRepo *LogRepo) (*mcp.Tool, server.ToolHandlerFunc) {
+	tool := mcp.NewTool("list_log_label_values",
+		mcp.WithDescription("List all values for a given log label in the logs matching the provided filters. "+
+			"This can be used to discover what values are available for filtering logs using the list_logs tool. "+
+			"You can query for logs across multiple resources, but all resources must be in the same region and belong to the same owner.",
 		),
-		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		mcp.WithToolAnnotation(mcp.ToolAnnotation{
+			Title:          "List log label values",
+			ReadOnlyHint:   pointers.From(true),
+			IdempotentHint: pointers.From(true),
+			OpenWorldHint:  pointers.From(true),
+		}),
+		mcp.WithString("label",
+			mcp.Required(),
+			mcp.Description("The label to list values for."),
+			mcp.Enum(mcpserver.EnumValuesFromClientType(client.Host, client.Instance, client.Level, client.Method, client.StatusCode, client.Type)...),
+		),
+		mcp.WithArray("resource",
+			mcp.Required(),
+			mcp.Description("Filter by resource. A resource is the id of a server, cronjob, job, postgres, or redis."),
+			mcp.Items(map[string]interface{}{
+				"type": "string",
+			}),
+		),
+		mcp.WithArray("level",
+			mcp.Description("Filter logs by their severity level. Wildcards and regex are supported."),
+			mcp.Items(map[string]interface{}{
+				"type": "string",
+			}),
+		),
+		mcp.WithArray("type",
+			mcp.Description("Filter logs by their type."),
+			mcp.Items(map[string]interface{}{
+				"type": "string",
+			}),
+		),
+		mcp.WithArray("instance",
+			mcp.Description("Filter logs by the instance they were emitted from."),
+			mcp.Items(map[string]interface{}{
+				"type": "string",
+			}),
+		),
+		mcp.WithArray("host",
+			mcp.Description("Filter request logs by their host. Wildcards and regex are supported."),
+			mcp.Items(map[string]interface{}{
+				"type": "string",
+			}),
+		),
+		mcp.WithArray("statusCode",
+			mcp.Description("Filter request logs by their status code. Wildcards and regex are supported."),
+			mcp.Items(map[string]interface{}{
+				"type": "string",
+			}),
+		),
+		mcp.WithArray("method",
+			mcp.Description("Filter request logs by their requests method. Wildcards and regex are supported."),
+			mcp.Items(map[string]interface{}{
+				"type": "string",
+			}),
+		),
+		mcp.WithArray("path",
+			mcp.Description("Filter request logs by their path. Wildcards and regex are supported."),
+			mcp.Items(map[string]interface{}{
+				"type": "string",
+			}),
+		),
+		mcp.WithArray("text",
+			mcp.Description("Filter by the text of the logs. Wildcards and regex are supported."),
+			mcp.Items(map[string]interface{}{
+				"type": "string",
+			}),
+		),
+		mcp.WithString("startTime",
+			mcp.Description("Start time for log query (RFC3339 format). "+
+				"Defaults to 1 hour ago. "+
+				"The start time must be within the last 30 days."),
+		),
+		mcp.WithString("endTime",
+			mcp.Description("End time for log query (RFC3339 format). "+
+				"Defaults to the current time. "+
+				"The end time must be within the last 30 days."),
+		),
+		mcp.WithString("direction",
+			mcp.Description("The direction to query logs for. Backward will return most recent logs first. Forward will start with the oldest logs in the time range."),
+			mcp.Enum(string(logsclient.Backward), string(logsclient.Forward)),
+			mcp.DefaultString(string(logsclient.Backward)),
+		),
+	)
+	return &tool,
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			label, err := validate.RequiredToolParam[string](request, "label")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
@@ -429,6 +428,5 @@ func listLogLabelValues(logRepo *LogRepo) server.ServerTool {
 			}
 
 			return mcp.NewToolResultText(string(respJSON)), nil
-		},
-	}
+		}
 }

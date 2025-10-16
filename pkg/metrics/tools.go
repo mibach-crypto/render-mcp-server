@@ -14,107 +14,106 @@ import (
 	"github.com/render-oss/render-mcp-server/pkg/validate"
 )
 
-func Tools(c *client.ClientWithResponses) []server.ServerTool {
+func AddTools(s *server.MCPServer, c *client.ClientWithResponses) {
 	metricsRepo := NewRepo(c)
 
-	return []server.ServerTool{
-		getMetrics(metricsRepo),
-	}
+	tool, handler := getMetrics(metricsRepo)
+	s.AddTool(*tool, handler)
 }
 
-func getMetrics(metricsRepo *Repo) server.ServerTool {
-	return server.ServerTool{
-		Tool: mcp.NewTool("get_metrics",
-			mcp.WithDescription("Get performance metrics for any Render resource (services, Postgres databases, key-value stores). "+
-				"Supports CPU usage/limits/targets, memory usage/limits/targets, service instance counts, HTTP request counts and response time metrics, bandwidth usage metrics, database active connection counts for debugging, capacity planning, and performance optimization. "+
-				"Returns time-series data with timestamps and values for the specified time range. "+
-				"HTTP metrics support filtering by host and path for more granular analysis. "+
-				"Limits and targets help understand resource constraints and autoscaling thresholds. "+
-				"Metrics may be empty if the metric is not valid for the given resource."),
-			mcp.WithToolAnnotation(mcp.ToolAnnotation{
-				Title:         "Get resource metrics",
-				ReadOnlyHint:  pointers.From(true),
-				OpenWorldHint: pointers.From(true),
-			}),
-			mcp.WithString("resourceId",
-				mcp.Required(),
-				mcp.Description("The ID of the resource to get metrics for (service ID, Postgres ID, or key-value store ID)"),
-			),
-			mcp.WithArray("metricTypes",
-				mcp.Required(),
-				mcp.Description("Which metrics to fetch. "+
-					"CPU usage/limits/targets, memory usage/limits/targets, and instance count metrics are available for all resources. "+
-					"HTTP request counts and response time metrics, and bandwidth usage metrics are only available for services. "+
-					"Active connection metrics are only available for databases and key-value stores. "+
-					"Limits show resource constraints, targets show autoscaling thresholds."),
-				mcp.Items(map[string]interface{}{
-					"type": "string",
-					"enum": []string{
-						string(MetricTypeCPUUsage), string(MetricTypeMemoryUsage),
-						string(MetricTypeHTTPRequestCount), string(MetricTypeActiveConnections),
-						string(MetricTypeInstanceCount), string(MetricTypeHTTPLatency),
-						string(MetricTypeCPULimit), string(MetricTypeCPUTarget),
-						string(MetricTypeMemoryLimit), string(MetricTypeMemoryTarget),
-						string(MetricTypeBandwidthUsage),
-					},
-				}),
-			),
-			mcp.WithString("startTime",
-				mcp.Description("Start time for metrics query in RFC3339 format (e.g., '2024-01-01T12:00:00Z'). "+
-					"Defaults to 1 hour ago. "+
-					"The start time must be within the last 30 days."),
-			),
-			mcp.WithString("endTime",
-				mcp.Description("End time for metrics query in RFC3339 format (e.g., '2024-01-01T13:00:00Z'). "+
-					"Defaults to the current time. "+
-					"The end time must be within the last 30 days."),
-			),
-			mcp.WithNumber("resolution",
-				mcp.Description("Time resolution for data points in seconds. "+
-					"Lower values provide more granular data. "+
-					"Higher values provide more aggregated data points. "+
-					"API defaults to 60 seconds if not provided. "+
-					"There is a limit to the number of data points that can be returned, after which the metrics endpoint will return a 500. "+
-					"If you are getting a 500, try reducing granularity (increasing the value of resolution)."),
-				mcp.Min(30),
-			),
-			mcp.WithString("cpuUsageAggregationMethod",
-				mcp.Description("Method for aggregating metric values over time intervals. "+
-					"Only supported for CPU usage metrics. "+
-					"Options: AVG, MAX, MIN. Defaults to AVG."),
-				mcp.Enum(string(metricstypes.AVG), string(metricstypes.MAX), string(metricstypes.MIN)),
-				mcp.DefaultString(string(metricstypes.AVG)),
-			),
-			mcp.WithString("aggregateHttpRequestCountsBy",
-				mcp.Description("Field to aggregate HTTP request metrics by. "+
-					"Only supported for http_request_count metric. "+
-					"Options: host (aggregate by request host), statusCode (aggregate by HTTP status code). "+
-					"When not specified, returns total request counts."),
-				mcp.Enum(string(metricstypes.HttpAggregateByHost), string(metricstypes.HttpAggregateByStatusCode)),
-			),
-			mcp.WithNumber("httpLatencyQuantile",
-				mcp.Description("The quantile/percentile of HTTP latency to fetch. "+
-					"Only supported for http_latency metric. "+
-					"Common values: 0.5 (median), 0.95 (95th percentile), 0.99 (99th percentile). "+
-					"Defaults to 0.95 if not specified."),
-				mcp.Min(0.0),
-				mcp.Max(1.0),
-				mcp.DefaultNumber(0.95),
-			),
-			mcp.WithString("httpHost",
-				mcp.Description("Filter HTTP metrics to specific request hosts. "+
-					"Supported for http_request_count and http_latency metrics. "+
-					"Example: 'api.example.com' or 'myapp.render.com'. "+
-					"When not specified, includes all hosts."),
-			),
-			mcp.WithString("httpPath",
-				mcp.Description("Filter HTTP metrics to specific request paths. "+
-					"Supported for http_request_count and http_latency metrics. "+
-					"Example: '/api/users' or '/health'. "+
-					"When not specified, includes all paths."),
-			),
+func getMetrics(metricsRepo *Repo) (*mcp.Tool, server.ToolHandlerFunc) {
+	tool := mcp.NewTool("get_metrics",
+		mcp.WithDescription("Get performance metrics for any Render resource (services, Postgres databases, key-value stores). "+
+			"Supports CPU usage/limits/targets, memory usage/limits/targets, service instance counts, HTTP request counts and response time metrics, bandwidth usage metrics, database active connection counts for debugging, capacity planning, and performance optimization. "+
+			"Returns time-series data with timestamps and values for the specified time range. "+
+			"HTTP metrics support filtering by host and path for more granular analysis. "+
+			"Limits and targets help understand resource constraints and autoscaling thresholds. "+
+			"Metrics may be empty if the metric is not valid for the given resource."),
+		mcp.WithToolAnnotation(mcp.ToolAnnotation{
+			Title:         "Get resource metrics",
+			ReadOnlyHint:  pointers.From(true),
+			OpenWorldHint: pointers.From(true),
+		}),
+		mcp.WithString("resourceId",
+			mcp.Required(),
+			mcp.Description("The ID of the resource to get metrics for (service ID, Postgres ID, or key-value store ID)"),
 		),
-		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		mcp.WithArray("metricTypes",
+			mcp.Required(),
+			mcp.Description("Which metrics to fetch. "+
+				"CPU usage/limits/targets, memory usage/limits/targets, and instance count metrics are available for all resources. "+
+				"HTTP request counts and response time metrics, and bandwidth usage metrics are only available for services. "+
+				"Active connection metrics are only available for databases and key-value stores. "+
+				"Limits show resource constraints, targets show autoscaling thresholds."),
+			mcp.Items(map[string]interface{}{
+				"type": "string",
+				"enum": []string{
+					string(MetricTypeCPUUsage), string(MetricTypeMemoryUsage),
+					string(MetricTypeHTTPRequestCount), string(MetricTypeActiveConnections),
+					string(MetricTypeInstanceCount), string(MetricTypeHTTPLatency),
+					string(MetricTypeCPULimit), string(MetricTypeCPUTarget),
+					string(MetricTypeMemoryLimit), string(MetricTypeMemoryTarget),
+					string(MetricTypeBandwidthUsage),
+				},
+			}),
+		),
+		mcp.WithString("startTime",
+			mcp.Description("Start time for metrics query in RFC3339 format (e.g., '2024-01-01T12:00:00Z'). "+
+				"Defaults to 1 hour ago. "+
+				"The start time must be within the last 30 days."),
+		),
+		mcp.WithString("endTime",
+			mcp.Description("End time for metrics query in RFC3339 format (e.g., '2024-01-01T13:00:00Z'). "+
+				"Defaults to the current time. "+
+				"The end time must be within the last 30 days."),
+		),
+		mcp.WithNumber("resolution",
+			mcp.Description("Time resolution for data points in seconds. "+
+				"Lower values provide more granular data. "+
+				"Higher values provide more aggregated data points. "+
+				"API defaults to 60 seconds if not provided. "+
+				"There is a limit to the number of data points that can be returned, after which the metrics endpoint will return a 500. "+
+				"If you are getting a 500, try reducing granularity (increasing the value of resolution)."),
+			mcp.Min(30),
+		),
+		mcp.WithString("cpuUsageAggregationMethod",
+			mcp.Description("Method for aggregating metric values over time intervals. "+
+				"Only supported for CPU usage metrics. "+
+				"Options: AVG, MAX, MIN. Defaults to AVG."),
+			mcp.Enum(string(metricstypes.AVG), string(metricstypes.MAX), string(metricstypes.MIN)),
+			mcp.DefaultString(string(metricstypes.AVG)),
+		),
+		mcp.WithString("aggregateHttpRequestCountsBy",
+			mcp.Description("Field to aggregate HTTP request metrics by. "+
+				"Only supported for http_request_count metric. "+
+				"Options: host (aggregate by request host), statusCode (aggregate by HTTP status code). "+
+				"When not specified, returns total request counts."),
+			mcp.Enum(string(metricstypes.HttpAggregateByHost), string(metricstypes.HttpAggregateByStatusCode)),
+		),
+		mcp.WithNumber("httpLatencyQuantile",
+			mcp.Description("The quantile/percentile of HTTP latency to fetch. "+
+				"Only supported for http_latency metric. "+
+				"Common values: 0.5 (median), 0.95 (95th percentile), 0.99 (99th percentile). "+
+				"Defaults to 0.95 if not specified."),
+			mcp.Min(0.0),
+			mcp.Max(1.0),
+			mcp.DefaultNumber(0.95),
+		),
+		mcp.WithString("httpHost",
+			mcp.Description("Filter HTTP metrics to specific request hosts. "+
+				"Supported for http_request_count and http_latency metrics. "+
+				"Example: 'api.example.com' or 'myapp.render.com'. "+
+				"When not specified, includes all hosts."),
+		),
+		mcp.WithString("httpPath",
+			mcp.Description("Filter HTTP metrics to specific request paths. "+
+				"Supported for http_request_count and http_latency metrics. "+
+				"Example: '/api/users' or '/health'. "+
+				"When not specified, includes all paths."),
+		),
+	)
+	return &tool,
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			resourceId, err := validate.RequiredToolParam[string](request, "resourceId")
 			if err != nil {
 				return mcp.NewToolResultError(fmt.Sprintf("resourceId parameter error: %s", err.Error())), nil
@@ -235,6 +234,5 @@ func getMetrics(metricsRepo *Repo) server.ServerTool {
 			}
 
 			return mcp.NewToolResultText(string(respJSON)), nil
-		},
-	}
+		}
 }
