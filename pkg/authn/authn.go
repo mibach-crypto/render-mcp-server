@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/render-oss/render-mcp-server/pkg/cfg"
 )
@@ -25,6 +26,12 @@ func ContextWithAPIToken(ctx context.Context, token string) context.Context {
 }
 
 func ContextWithAPITokenFromHeader(ctx context.Context, req *http.Request) context.Context {
+	// We will check for the AUTH_TOKEN env var first. If it is not set, we will
+	// fall back to checking the Authorization header.
+	if authToken, ok := os.LookupEnv("AUTH_TOKEN"); ok {
+		return ContextWithAPIToken(ctx, authToken)
+	}
+
 	token := req.Header.Get("Authorization")
 
 	if token == "" {

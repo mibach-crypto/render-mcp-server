@@ -6,6 +6,8 @@ services:
   buildCommand: go build -tags netgo -ldflags '-s -w' -o app
   startCommand: ./app --transport http
   envVars:
+  - key: AUTH_TOKEN
+    value: ""
   - key: REDIS_URL
     fromService:
       name: mcp-kv
