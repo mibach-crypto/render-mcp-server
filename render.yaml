@@ -2,12 +2,12 @@
 services:
 - type: web
   name: mcp
-  runtime: go
-  buildCommand: go build -tags netgo -ldflags '-s -w' -o app
-  startCommand: ./app --transport http
+  runtime: node
+  buildCommand: echo "No build required"
+  startCommand: npx @typingmind/mcp vFN0rlGzmFuWiJwvKxCVA
   envVars:
   - key: AUTH_TOKEN
-    value: ""
+    value: "vFN0rlGzmFuWiJwvKxCVA"
   - key: REDIS_URL
     fromService:
       name: mcp-kv
