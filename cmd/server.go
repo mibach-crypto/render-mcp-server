@@ -58,12 +58,17 @@ func Serve(transport string) *server.MCPServer {
 			log.Print("using in-memory session store\n")
 			sessionStore = session.NewInMemoryStore()
 		}
+		port := os.Getenv("PORT")
+		if port == "" {
+			port = "10000"
+		}
+
 		err := server.
 			NewStreamableHTTPServer(s, server.WithHTTPContextFunc(multicontext.MultiHTTPContextFunc(
 				session.ContextWithHTTPSession(sessionStore),
 				authn.ContextWithAPITokenFromHeader,
 			))).
-			Start(":10000")
+			Start(":" + port)
 		if err != nil {
 			log.Fatalf("Starting Streamable server: %v\n:", err)
 		}

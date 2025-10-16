@@ -26,25 +26,31 @@ func ContextWithAPIToken(ctx context.Context, token string) context.Context {
 }
 
 func ContextWithAPITokenFromHeader(ctx context.Context, req *http.Request) context.Context {
-	// We will check for the AUTH_TOKEN env var first. If it is not set, we will
-	// fall back to checking the Authorization header.
-	if authToken, ok := os.LookupEnv("AUTH_TOKEN"); ok {
-		return ContextWithAPIToken(ctx, authToken)
-	}
-
-	token := req.Header.Get("Authorization")
-
-	if token == "" {
-		return ctx
-	}
+	headerToken := req.Header.Get("Authorization")
 
 	// Note: we strip the "Bearer " prefix if it exists
 	// MCP Inspector attaches this prefix automatically, but it's unclear how standard this is
-	if len(token) > 7 && token[:7] == "Bearer " {
-		token = token[7:]
+	if len(headerToken) > 7 && headerToken[:7] == "Bearer " {
+		headerToken = headerToken[7:]
 	}
 
-	return ContextWithAPIToken(ctx, token)
+	// If AUTH_TOKEN is configured on the server, we use it for validation.
+	if authToken, ok := os.LookupEnv("AUTH_TOKEN"); ok && authToken != "" {
+		// If the client's token matches the expected auth token, we're authenticated.
+		if headerToken == authToken {
+			return ContextWithAPIToken(ctx, headerToken)
+		}
+		// If they don't match, the request is unauthenticated.
+		return ctx
+	}
+
+	// If AUTH_TOKEN is not set, fall back to the original behavior:
+	// Place the token from the header into the context, assuming it's a Render API key.
+	if headerToken == "" {
+		return ctx
+	}
+
+	return ContextWithAPIToken(ctx, headerToken)
 }
 
 func ContextWithAPITokenFromConfig(ctx context.Context) context.Context {
