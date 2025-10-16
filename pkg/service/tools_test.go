@@ -90,8 +90,9 @@ func TestUpdateEnvVarsTool(t *testing.T) {
 				"envVars":   envVarInputsAsParams(newEnvVars),
 			}
 
-			tool := updateEnvVars(repo)
-			result, err := tool.Handler(context.Background(), request)
+			tool, handler := updateEnvVars(repo)
+			assert.NotNil(t, tool)
+			result, err := handler(context.Background(), request)
 
 			assert.NoError(t, err)
 			assert.NotNil(t, result)

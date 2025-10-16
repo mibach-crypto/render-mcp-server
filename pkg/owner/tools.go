@@ -13,28 +13,31 @@ import (
 	"github.com/render-oss/render-mcp-server/pkg/validate"
 )
 
-func Tools(c *client.ClientWithResponses) []server.ServerTool {
+func AddTools(s *server.MCPServer, c *client.ClientWithResponses) {
 	ownerRepo := NewRepo(c)
 
-	return []server.ServerTool{
-		listWorkspaces(ownerRepo),
-		selectWorkspace(),
-		getSelectedWorkspace(),
-	}
+	tool, handler := listWorkspaces(ownerRepo)
+	s.AddTool(*tool, handler)
+
+	tool, handler = selectWorkspace()
+	s.AddTool(*tool, handler)
+
+	tool, handler = getSelectedWorkspace()
+	s.AddTool(*tool, handler)
 }
 
-func listWorkspaces(ownerRepo *Repo) server.ServerTool {
-	return server.ServerTool{
-		Tool: mcp.NewTool("list_workspaces",
-			mcp.WithDescription("List the workspaces that you have access to"),
-			mcp.WithToolAnnotation(mcp.ToolAnnotation{
-				Title:          "List workspaces",
-				ReadOnlyHint:   pointers.From(true),
-				IdempotentHint: pointers.From(true),
-				OpenWorldHint:  pointers.From(true),
-			}),
-		),
-		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func listWorkspaces(ownerRepo *Repo) (*mcp.Tool, server.ToolHandlerFunc) {
+	tool := mcp.NewTool("list_workspaces",
+		mcp.WithDescription("List the workspaces that you have access to"),
+		mcp.WithToolAnnotation(mcp.ToolAnnotation{
+			Title:          "List workspaces",
+			ReadOnlyHint:   pointers.From(true),
+			IdempotentHint: pointers.From(true),
+			OpenWorldHint:  pointers.From(true),
+		}),
+	)
+	return &tool,
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			workspaces, err := ownerRepo.ListOwners(ctx, ListInput{})
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
@@ -57,28 +60,27 @@ func listWorkspaces(ownerRepo *Repo) server.ServerTool {
 
 			resultText += string(respJSON)
 			return mcp.NewToolResultText(resultText), nil
-		},
-	}
+		}
 }
 
-func selectWorkspace() server.ServerTool {
-	return server.ServerTool{
-		Tool: mcp.NewTool("select_workspace",
-			mcp.WithDescription("Select a workspace to use for all actions. This tool should "+
-				"only be used after explicitly asking the user to select one, it should not be invoked "+
-				"as part of an automated process. Having the wrong workspace selected can lead to "+
-				"destructive actions being performed on unintended resources."),
-			mcp.WithToolAnnotation(mcp.ToolAnnotation{
-				Title:          "Select workspace",
-				IdempotentHint: pointers.From(true),
-				OpenWorldHint:  pointers.From(true),
-			}),
-			mcp.WithString("ownerID",
-				mcp.Required(),
-				mcp.Description("The ID of the owner to select"),
-			),
+func selectWorkspace() (*mcp.Tool, server.ToolHandlerFunc) {
+	tool := mcp.NewTool("select_workspace",
+		mcp.WithDescription("Select a workspace to use for all actions. This tool should "+
+			"only be used after explicitly asking the user to select one, it should not be invoked "+
+			"as part of an automated process. Having the wrong workspace selected can lead to "+
+			"destructive actions being performed on unintended resources."),
+		mcp.WithToolAnnotation(mcp.ToolAnnotation{
+			Title:          "Select workspace",
+			IdempotentHint: pointers.From(true),
+			OpenWorldHint:  pointers.From(true),
+		}),
+		mcp.WithString("ownerID",
+			mcp.Required(),
+			mcp.Description("The ID of the owner to select"),
 		),
-		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	)
+	return &tool,
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			ownerID, err := validate.RequiredToolParam[string](request, "ownerID")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
@@ -90,22 +92,21 @@ func selectWorkspace() server.ServerTool {
 			}
 
 			return mcp.NewToolResultText("Workspace selected"), nil
-		},
-	}
+		}
 }
 
-func getSelectedWorkspace() server.ServerTool {
-	return server.ServerTool{
-		Tool: mcp.NewTool("get_selected_workspace",
-			mcp.WithDescription("Get the currently selected workspace"),
-			mcp.WithToolAnnotation(mcp.ToolAnnotation{
-				Title:          "Get selected workspace",
-				ReadOnlyHint:   pointers.From(true),
-				IdempotentHint: pointers.From(true),
-				OpenWorldHint:  pointers.From(true),
-			}),
-		),
-		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+func getSelectedWorkspace() (*mcp.Tool, server.ToolHandlerFunc) {
+	tool := mcp.NewTool("get_selected_workspace",
+		mcp.WithDescription("Get the currently selected workspace"),
+		mcp.WithToolAnnotation(mcp.ToolAnnotation{
+			Title:          "Get selected workspace",
+			ReadOnlyHint:   pointers.From(true),
+			IdempotentHint: pointers.From(true),
+			OpenWorldHint:  pointers.From(true),
+		}),
+	)
+	return &tool,
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			workspace, err := session.FromContext(ctx).GetWorkspace(ctx)
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
@@ -114,6 +115,5 @@ func getSelectedWorkspace() server.ServerTool {
 			return mcp.NewToolResultText(
 				fmt.Sprintf("The currently selected workspace is: %s", workspace),
 			), nil
-		},
-	}
+		}
 }

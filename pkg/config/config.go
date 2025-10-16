@@ -19,7 +19,7 @@ const configPathEnvKey = "RENDER_CONFIG_PATH"
 const workspaceEnvKey = "RENDER_WORKSPACE"
 
 var ErrNoWorkspace = errors.New("no workspace set. Prompt the user to select a workspace. Do NOT try to select a workspace for them, as it may be destructive")
-var ErrLogin = errors.New("not authenticated; either set RENDER_API_KEY or ask your MCP host to authenticate")
+var ErrLogin = errors.New("not authenticated; either set RENDER_API_KEY or use the `login` command")
 
 type Config struct {
 	Version   int    `yaml:"version"`
@@ -29,6 +29,7 @@ type Config struct {
 }
 
 type APIConfig struct {
+	APIKey       string `yaml:"api_key,omitempty"`
 	ExpiresAt    int64  `yaml:"expires_at,omitempty"`
 	Host         string `json:"host,omitempty"`
 	RefreshToken string `json:"refresh_token,omitempty"`
@@ -59,15 +60,22 @@ func init() {
 }
 
 func DefaultAPIConfig() (APIConfig, error) {
-	apiCfg := APIConfig{
-		Host: cfg.GetHost(),
+	if apiKey := os.Getenv("RENDER_API_KEY"); apiKey != "" {
+		return APIConfig{
+			APIKey: apiKey,
+			Host:   cfg.GetHost(),
+		}, nil
 	}
 
-	if apiCfg.Host == "" {
-		apiCfg.Host = cfg.GetHost()
+	cfg, err := getAPIConfig()
+	if err != nil {
+		return APIConfig{}, err
+	}
+	if cfg.APIKey == "" {
+		return APIConfig{}, ErrLogin
 	}
 
-	return apiCfg, nil
+	return cfg, nil
 }
 
 func DashboardURL() string {
@@ -148,6 +156,7 @@ func SetAPIConfig(input APIConfig) error {
 		return err
 	}
 
+	cfg.APIKey = input.APIKey
 	cfg.Host = input.Host
 	cfg.ExpiresAt = input.ExpiresAt
 	cfg.RefreshToken = input.RefreshToken

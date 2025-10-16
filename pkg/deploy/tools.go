@@ -11,45 +11,45 @@ import (
 	"github.com/render-oss/render-mcp-server/pkg/validate"
 )
 
-func Tools(c *client.ClientWithResponses) []server.ServerTool {
+func AddTools(s *server.MCPServer, c *client.ClientWithResponses) {
 	deployRepo := NewRepo(c)
 
-	return []server.ServerTool{
-		listDeploys(deployRepo),
-		getDeploy(deployRepo),
-	}
+	tool, handler := listDeploys(deployRepo)
+	s.AddTool(*tool, handler)
+	tool, handler = getDeploy(deployRepo)
+	s.AddTool(*tool, handler)
 }
 
-func listDeploys(deployRepo *Repo) server.ServerTool {
-	return server.ServerTool{
-		Tool: mcp.NewTool("list_deploys",
-			mcp.WithDescription("List deploys matching the provided filters. If no filters are provided, all deploys for the service are returned."),
-			mcp.WithToolAnnotation(mcp.ToolAnnotation{
-				Title:          "List deploys",
-				ReadOnlyHint:   pointers.From(true),
-				IdempotentHint: pointers.From(true),
-				OpenWorldHint:  pointers.From(true),
-			}),
-			mcp.WithString("serviceId",
-				mcp.Required(),
-				mcp.Description("The ID of the service to get deployments for"),
-			),
-			mcp.WithNumber("limit",
-				mcp.Description("The maximum number of deploys to return in a single page. To fetch "+
-					"additional pages of results, set the cursor to the last deploy in the previous page. "+
-					"It should be rare to need to set this value greater than 20."),
-				mcp.DefaultNumber(10),
-				mcp.Min(1),
-				mcp.Max(100),
-			),
-			mcp.WithString("cursor",
-				mcp.Description("A unique string that corresponds to a position in the result list. "+
-					"If provided, the endpoint returns results that appear after the corresponding position. "+
-					"To fetch the first page of results, set to the empty string."),
-				mcp.DefaultString(""),
-			),
+func listDeploys(deployRepo *Repo) (*mcp.Tool, server.ToolHandlerFunc) {
+	tool := mcp.NewTool("list_deploys",
+		mcp.WithDescription("List deploys matching the provided filters. If no filters are provided, all deploys for the service are returned."),
+		mcp.WithToolAnnotation(mcp.ToolAnnotation{
+			Title:          "List deploys",
+			ReadOnlyHint:   pointers.From(true),
+			IdempotentHint: pointers.From(true),
+			OpenWorldHint:  pointers.From(true),
+		}),
+		mcp.WithString("serviceId",
+			mcp.Required(),
+			mcp.Description("The ID of the service to get deployments for"),
 		),
-		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		mcp.WithNumber("limit",
+			mcp.Description("The maximum number of deploys to return in a single page. To fetch "+
+				"additional pages of results, set the cursor to the last deploy in the previous page. "+
+				"It should be rare to need to set this value greater than 20."),
+			mcp.DefaultNumber(10),
+			mcp.Min(1),
+			mcp.Max(100),
+		),
+		mcp.WithString("cursor",
+			mcp.Description("A unique string that corresponds to a position in the result list. "+
+				"If provided, the endpoint returns results that appear after the corresponding position. "+
+				"To fetch the first page of results, set to the empty string."),
+			mcp.DefaultString(""),
+		),
+	)
+	return &tool,
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			serviceId, err := validate.RequiredToolParam[string](request, "serviceId")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
@@ -86,30 +86,29 @@ func listDeploys(deployRepo *Repo) server.ServerTool {
 			}
 
 			return mcp.NewToolResultText(respText), nil
-		},
-	}
+		}
 }
 
-func getDeploy(deployRepo *Repo) server.ServerTool {
-	return server.ServerTool{
-		Tool: mcp.NewTool("get_deploy",
-			mcp.WithDescription("Retrieve the details of a particular deploy for a particular service."),
-			mcp.WithToolAnnotation(mcp.ToolAnnotation{
-				Title:          "Get deploy details",
-				ReadOnlyHint:   pointers.From(true),
-				IdempotentHint: pointers.From(true),
-				OpenWorldHint:  pointers.From(true),
-			}),
-			mcp.WithString("serviceId",
-				mcp.Required(),
-				mcp.Description("The ID of the service to get deployments for"),
-			),
-			mcp.WithString("deployId",
-				mcp.Required(),
-				mcp.Description("The ID of the deployment to retrieve"),
-			),
+func getDeploy(deployRepo *Repo) (*mcp.Tool, server.ToolHandlerFunc) {
+	tool := mcp.NewTool("get_deploy",
+		mcp.WithDescription("Retrieve the details of a particular deploy for a particular service."),
+		mcp.WithToolAnnotation(mcp.ToolAnnotation{
+			Title:          "Get deploy details",
+			ReadOnlyHint:   pointers.From(true),
+			IdempotentHint: pointers.From(true),
+			OpenWorldHint:  pointers.From(true),
+		}),
+		mcp.WithString("serviceId",
+			mcp.Required(),
+			mcp.Description("The ID of the service to get deployments for"),
 		),
-		Handler: func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		mcp.WithString("deployId",
+			mcp.Required(),
+			mcp.Description("The ID of the deployment to retrieve"),
+		),
+	)
+	return &tool,
+		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			serviceId, err := validate.RequiredToolParam[string](request, "serviceId")
 			if err != nil {
 				return mcp.NewToolResultError(err.Error()), nil
@@ -131,6 +130,5 @@ func getDeploy(deployRepo *Repo) server.ServerTool {
 			}
 
 			return mcp.NewToolResultText(string(respJSON)), nil
-		},
-	}
+		}
 }
