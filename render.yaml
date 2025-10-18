@@ -1,22 +1,32 @@
 ---
 services:
 - type: web
-  name: mcp
+  name: mcp-server-typingmind
   runtime: docker
   dockerfilePath: ./Dockerfile
   healthCheckPath: /health
+  plan: free  # Change to 'starter' or higher for production
+  autoDeploy: true  # Auto-deploy on git push
   envVars:
   - key: AUTH_TOKEN
     sync: false
+    # Generate with: openssl rand -hex 32
   - key: RENDER_API_KEY
     sync: false
+    # Get from: https://dashboard.render.com/account/api-keys
   - key: REDIS_URL
     fromService:
       name: mcp-kv
       type: keyvalue
       property: connectionString
+  - key: PORT
+    value: 10000  # Default port, Render will override if needed
+  - key: HOST
+    value: 0.0.0.0  # Listen on all interfaces
 - type: keyvalue
   name: mcp-kv
+  plan: free  # Change to 'starter' or higher for production
+  maxmemoryPolicy: allkeys-lru  # Evict least recently used keys when memory is full
   ipAllowList:
   - source: 0.0.0.0/0
-    description: everywhere
+    description: everywhere  # Restrict this in production

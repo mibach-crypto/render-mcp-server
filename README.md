@@ -9,6 +9,12 @@ server that allows you to interact with your Render resources via LLMs.
 
 Get started with the MCP server by following the official docs: https://render.com/docs/mcp-server
 
+### Quick Deploy to Render
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/mibach-crypto/render-mcp-server)
+
+For detailed deployment instructions, see [DEPLOY_TYPINGMIND.md](./DEPLOY_TYPINGMIND.md)
+
 ### Running with TypingMind
 
 The server exposes a [Streamable HTTP transport](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http)
