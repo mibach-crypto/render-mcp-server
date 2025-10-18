@@ -2,12 +2,14 @@
 services:
 - type: web
   name: mcp
-  runtime: go
-  buildCommand: go build -tags netgo -ldflags '-s -w' -o app
-  startCommand: ./app --transport http
+  runtime: docker
+  dockerfilePath: ./Dockerfile
+  healthCheckPath: /health
   envVars:
   - key: AUTH_TOKEN
-    value: "72RW2Yop1JPfTCcpZOnxb"
+    sync: false
+  - key: RENDER_API_KEY
+    sync: false
   - key: REDIS_URL
     fromService:
       name: mcp-kv
