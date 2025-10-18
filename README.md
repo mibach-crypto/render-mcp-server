@@ -9,6 +9,39 @@ server that allows you to interact with your Render resources via LLMs.
 
 Get started with the MCP server by following the official docs: https://render.com/docs/mcp-server
 
+### Running with TypingMind
+
+The server exposes a [Streamable HTTP transport](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http)
+so external clients such as TypingMind can connect over HTTP/S. Provide an
+authentication token (passed to TypingMind during MCP setup) and start the
+binary in HTTP mode:
+
+```bash
+go build -o render-mcp-server
+
+AUTH_TOKEN=72RW2Yop1JPfTCcpZOnxb \
+PORT=8080 \
+HOST=0.0.0.0 \
+./render-mcp-server --transport http
+```
+
+The server listens on `HOST:PORT` (default `0.0.0.0:10000`) and exposes the MCP
+endpoint at `/mcp` with a JSON health probe at `/health`. Configure TypingMind
+to use the same host, port, and authentication token when registering the MCP
+server (`http://<your-service-hostname>:8080/mcp`).
+
+Supported environment variables:
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| `AUTH_TOKEN` | Shared secret expected in the `Authorization` header. | _required_ |
+| `PORT` / `MCP_PORT` / `TYPINGMIND_PORT` | TCP port for the HTTP listener. | `10000` |
+| `HOST` / `MCP_HOST` / `TYPINGMIND_HOST` | Interface bound by the HTTP listener. | `0.0.0.0` |
+| `REDIS_URL` | Optional Redis connection string for persistent MCP sessions. | _(in-memory store)_ |
+
+Render automatically injects the `PORT` environment variable for web services,
+so most deployments only need to set `AUTH_TOKEN` (and optionally `REDIS_URL`).
+
 ## Use Cases
 
 - Creating and managing web services, static sites, and databases on Render
