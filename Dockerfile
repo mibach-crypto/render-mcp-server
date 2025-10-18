@@ -2,8 +2,11 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install npx (comes with node)
-# No build step needed - npx will download @typingmind/mcp on first run
+COPY package*.json ./
+RUN npm install --production
 
-# The auth token is passed as the first argument
-CMD npx @typingmind/mcp ${AUTH_TOKEN}
+COPY . .
+
+ENV NODE_ENV=production
+
+CMD ["node", "server.js"]

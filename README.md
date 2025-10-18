@@ -9,6 +9,34 @@ server that allows you to interact with your Render resources via LLMs.
 
 Get started with the MCP server by following the official docs: https://render.com/docs/mcp-server
 
+### Running with TypingMind
+
+The repository ships with a small wrapper (`server.js`) that exposes a health
+endpoint for Render while managing the TypingMind MCP server process. Configure
+the following environment variables before starting the service:
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| `AUTH_TOKEN` / `TYPINGMIND_AUTH_TOKEN` | Authentication token provided by TypingMind. | _required_ |
+| `HEALTH_PORT` | Port for the Express health server. | Render `$PORT` or `10000` |
+| `MCP_PORT` / `TYPINGMIND_PORT` | Port the TypingMind MCP server listens on. | `8080` |
+| `MCP_HOST` / `TYPINGMIND_HOST` | Interface the TypingMind MCP server binds to. | `0.0.0.0` |
+| `MCP_PACKAGE` | npm package launched via `npx`. | `@typingmind/mcp` |
+| `MCP_EXTRA_ARGS` | Extra space-delimited CLI arguments passed to the MCP package. | _(none)_ |
+| `MCP_RESTART_DELAY_MS` | Delay before restarting the MCP package after crashes. | `5000` |
+
+Example command for local development:
+
+```bash
+AUTH_TOKEN=your-token \
+MCP_PORT=8080 \
+node server.js
+```
+
+The TypingMind MCP server will be reachable at `http://<your-host>:<MCP_PORT>`.
+If you need to use an alternative package or provide extra CLI arguments, set
+`MCP_PACKAGE`/`MCP_EXTRA_ARGS` accordingly.
+
 ## Use Cases
 
 - Creating and managing web services, static sites, and databases on Render
