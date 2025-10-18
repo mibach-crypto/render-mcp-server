@@ -5,3 +5,6 @@
 
 # Avoid accidentally committing a locally built binary
 render-mcp-server
+
+# Ignore local Node dependencies from optional tooling wrappers
+node_modules/
