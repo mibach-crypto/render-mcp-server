@@ -11,31 +11,36 @@ Get started with the MCP server by following the official docs: https://render.c
 
 ### Running with TypingMind
 
-The repository ships with a small wrapper (`server.js`) that exposes a health
-endpoint for Render while managing the TypingMind MCP server process. Configure
-the following environment variables before starting the service:
+The server exposes a [Streamable HTTP transport](https://modelcontextprotocol.io/specification/2025-03-26/basic/transports#streamable-http)
+so external clients such as TypingMind can connect over HTTP/S. Provide an
+authentication token (passed to TypingMind during MCP setup) and start the
+binary in HTTP mode:
+
+```bash
+go build -o render-mcp-server
+
+AUTH_TOKEN=72RW2Yop1JPfTCcpZOnxb \
+PORT=8080 \
+HOST=0.0.0.0 \
+./render-mcp-server --transport http
+```
+
+The server listens on `HOST:PORT` (default `0.0.0.0:10000`) and exposes the MCP
+endpoint at `/mcp` with a JSON health probe at `/health`. Configure TypingMind
+to use the same host, port, and authentication token when registering the MCP
+server (`http://<your-service-hostname>:8080/mcp`).
+
+Supported environment variables:
 
 | Variable | Description | Default |
 | --- | --- | --- |
-| `AUTH_TOKEN` / `TYPINGMIND_AUTH_TOKEN` | Authentication token provided by TypingMind. | _required_ |
-| `HEALTH_PORT` | Port for the Express health server. | Render `$PORT` or `10000` |
-| `MCP_PORT` / `TYPINGMIND_PORT` | Port the TypingMind MCP server listens on. | `8080` |
-| `MCP_HOST` / `TYPINGMIND_HOST` | Interface the TypingMind MCP server binds to. | `0.0.0.0` |
-| `MCP_PACKAGE` | npm package launched via `npx`. | `@typingmind/mcp` |
-| `MCP_EXTRA_ARGS` | Extra space-delimited CLI arguments passed to the MCP package. | _(none)_ |
-| `MCP_RESTART_DELAY_MS` | Delay before restarting the MCP package after crashes. | `5000` |
+| `AUTH_TOKEN` | Shared secret expected in the `Authorization` header. | _required_ |
+| `PORT` / `MCP_PORT` / `TYPINGMIND_PORT` | TCP port for the HTTP listener. | `10000` |
+| `HOST` / `MCP_HOST` / `TYPINGMIND_HOST` | Interface bound by the HTTP listener. | `0.0.0.0` |
+| `REDIS_URL` | Optional Redis connection string for persistent MCP sessions. | _(in-memory store)_ |
 
-Example command for local development:
-
-```bash
-AUTH_TOKEN=your-token \
-MCP_PORT=8080 \
-node server.js
-```
-
-The TypingMind MCP server will be reachable at `http://<your-host>:<MCP_PORT>`.
-If you need to use an alternative package or provide extra CLI arguments, set
-`MCP_PACKAGE`/`MCP_EXTRA_ARGS` accordingly.
+Render automatically injects the `PORT` environment variable for web services,
+so most deployments only need to set `AUTH_TOKEN` (and optionally `REDIS_URL`).
 
 ## Use Cases
 
