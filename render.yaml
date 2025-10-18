@@ -2,12 +2,14 @@
 services:
 - type: web
   name: mcp
-  runtime: node
-  buildCommand: echo "No build required"
-  startCommand: npx @typingmind/mcp vFN0rlGzmFuWiJwvKxCVA
+  runtime: docker
+  dockerfilePath: ./Dockerfile
+  healthCheckPath: /health
   envVars:
   - key: AUTH_TOKEN
-    value: "vFN0rlGzmFuWiJwvKxCVA"
+    sync: false
+  - key: RENDER_API_KEY
+    sync: false
   - key: REDIS_URL
     fromService:
       name: mcp-kv
