@@ -3,7 +3,9 @@ const { spawn } = require('child_process');
 const http = require('http');
 
 const app = express();
-const PORT = process.env.PORT || 10000;
+const HEALTH_PORT = process.env.HEALTH_PORT || process.env.PORT || 10000;
+const MCP_PORT = process.env.MCP_PORT || process.env.MCP_SERVER_PORT || process.env.TYPINGMIND_PORT || 8080;
+const MCP_HOST = process.env.MCP_HOST || '0.0.0.0';
 const AUTH_TOKEN = process.env.AUTH_TOKEN;
 
 let mcpServerProcess = null;
@@ -23,7 +25,9 @@ app.get('/health', (req, res) => {
           },
           environment: {
                   hasAuthToken: !!AUTH_TOKEN,
-                  port: PORT
+                  healthPort: HEALTH_PORT,
+                  mcpPort: MCP_PORT,
+                  mcpHost: MCP_HOST
           }
     };
 
@@ -40,7 +44,12 @@ app.get('/', (req, res) => {
           endpoints: {
                   health: '/health',
                   info: '/',
-                  mcp: 'TypingMind MCP running on port 10000'
+                  mcp: `TypingMind MCP running on ${MCP_HOST}:${MCP_PORT}`
+          },
+          configuration: {
+                  healthPort: HEALTH_PORT,
+                  mcpPort: MCP_PORT,
+                  mcpHost: MCP_HOST
           }
     });
 });
@@ -54,9 +63,17 @@ function startMCPServer() {
 
   console.log('Starting TypingMind MCP server...');
 
+  const childEnv = {
+        ...process.env,
+        PORT: String(MCP_PORT),
+        HOST: MCP_HOST
+  };
+
+  console.log(`Launching TypingMind MCP server on ${childEnv.HOST}:${childEnv.PORT}`);
+
   mcpServerProcess = spawn('npx', ['@typingmind/mcp', AUTH_TOKEN], {
         stdio: ['ignore', 'pipe', 'pipe'],
-        env: { ...process.env }
+        env: childEnv
   });
 
   mcpServerProcess.stdout.on('data', (data) => {
@@ -119,9 +136,9 @@ process.on('SIGINT', () => {
 });
 
 // Start both servers
-const server = app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Health check server running on port ${PORT}`);
-    console.log(`Environment: PORT=${PORT}, AUTH_TOKEN=${AUTH_TOKEN ? 'SET' : 'NOT SET'}`);
+const server = app.listen(HEALTH_PORT, '0.0.0.0', () => {
+    console.log(`Health check server running on port ${HEALTH_PORT}`);
+    console.log(`Environment: HEALTH_PORT=${HEALTH_PORT}, MCP_PORT=${MCP_PORT}, MCP_HOST=${MCP_HOST}, AUTH_TOKEN=${AUTH_TOKEN ? 'SET' : 'NOT SET'}`);
     startMCPServer();
 });
 
