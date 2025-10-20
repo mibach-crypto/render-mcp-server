@@ -1,8 +1,7 @@
 ---
 services:
 - type: web
-  name: mcp-server-typingmind
-  runtime: docker
+  name: mcp  runtime: docker
   dockerfilePath: ./Dockerfile
   healthCheckPath: /health
   plan: free  # Change to 'starter' or higher for production
